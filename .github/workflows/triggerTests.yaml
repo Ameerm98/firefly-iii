@@ -2,8 +2,7 @@ name: trigger Tests
 
 on:
   pull_request:
-    branches:
-      - main
+
 
 jobs:
   TriggerDeployment:
