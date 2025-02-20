@@ -26,6 +26,7 @@ namespace FireflyIII\Api\V1\Controllers;
 
 use Carbon\Carbon;
 use Carbon\Exceptions\InvalidFormatException;
+use FireflyIII\Exceptions\BadHttpHeaderException;
 use FireflyIII\Models\Preference;
 use FireflyIII\Models\TransactionCurrency;
 use FireflyIII\Support\Facades\Amount;
@@ -59,13 +60,15 @@ abstract class Controller extends BaseController
     use DispatchesJobs;
     use ValidatesRequests;
 
-    protected const string CONTENT_TYPE    = 'application/vnd.api+json';
+    protected const string CONTENT_TYPE      = 'application/vnd.api+json';
+    protected const string JSON_CONTENT_TYPE = 'application/json';
 
     /** @var array<int, string> */
     protected array        $allowedSort;
     protected ParameterBag $parameters;
-    protected bool        $convertToNative = false;
-    protected TransactionCurrency $defaultCurrency;
+    protected bool        $convertToNative   = false;
+    protected array $accepts                 = ['application/json', 'application/vnd.api+json'];
+    protected TransactionCurrency $nativeCurrency;
 
     /**
      * Controller constructor.
@@ -80,10 +83,16 @@ abstract class Controller extends BaseController
                 if (auth()->check()) {
                     $language              = Steam::getLanguage();
                     $this->convertToNative = Amount::convertToNative();
-                    $this->defaultCurrency = Amount::getNativeCurrency();
+                    $this->nativeCurrency  = Amount::getNativeCurrency();
                     app()->setLocale($language);
-
                 }
+
+
+                // filter down what this endpoint accepts.
+                if (!$request->accepts($this->accepts)) {
+                    throw new BadHttpHeaderException(sprintf('Sorry, Accept header "%s" is not something this endpoint can provide.', $request->header('Accept')));
+                }
+
 
                 return $next($request);
             }
@@ -148,7 +157,15 @@ abstract class Controller extends BaseController
                 $value = null;
             }
             if (null !== $value) {
-                $bag->set($integer, (int) $value);
+                $value = (int) $value;
+                if ($value < 1) {
+                    $value = 1;
+                }
+                if ($value > 2 ** 16) {
+                    $value = 2 ** 16;
+                }
+
+                $bag->set($integer, $value);
             }
             if (null === $value
                 && 'limit' === $integer // @phpstan-ignore-line

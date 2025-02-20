@@ -32,6 +32,7 @@ use FireflyIII\Exceptions\FireflyException;
 use FireflyIII\Models\Account;
 use FireflyIII\Models\Preference;
 use FireflyIII\Repositories\Account\AccountRepositoryInterface;
+use FireflyIII\Support\Facades\Steam;
 use FireflyIII\Support\Http\Api\ApiSupport;
 use FireflyIII\User;
 use Illuminate\Http\JsonResponse;
@@ -80,6 +81,10 @@ class AccountController extends Controller
         /** @var Carbon $end */
         $end        = $dates['end'];
 
+        // set dates to end of day + start of day:
+        $start->startOfDay();
+        $end->endOfDay();
+
         // user's preferences
         $defaultSet = $this->repository->getAccountsByType([AccountTypeEnum::ASSET->value])->pluck('id')->toArray();
 
@@ -97,8 +102,8 @@ class AccountController extends Controller
 
         /** @var Account $account */
         foreach ($accounts as $account) {
-            $currency     = $this->repository->getAccountCurrency($account) ?? $this->defaultCurrency;
-            $field        = $this->convertToNative && $currency->id !== $this->defaultCurrency->id ? 'native_balance' : 'balance';
+            $currency     = $this->repository->getAccountCurrency($account) ?? $this->nativeCurrency;
+            $field        = $this->convertToNative && $currency->id !== $this->nativeCurrency->id ? 'native_balance' : 'balance';
             $currentSet   = [
                 'label'                   => $account->name,
                 'currency_id'             => (string) $currency->id,
@@ -113,7 +118,7 @@ class AccountController extends Controller
             ];
             // TODO this code is also present in the V2 chart account controller so this method is due to be deprecated.
             $currentStart = clone $start;
-            $range        = app('steam')->finalAccountBalanceInRange($account, $start, clone $end, $this->convertToNative);
+            $range        = Steam::finalAccountBalanceInRange($account, $start, clone $end, $this->convertToNative);
             $previous     = array_values($range)[0][$field];
             while ($currentStart <= $end) {
                 $format                        = $currentStart->format('Y-m-d');

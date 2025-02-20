@@ -63,11 +63,10 @@ class UpdateRequest extends FormRequest
     {
         /** @var Tag $tag */
         $tag   = $this->route()->parameter('tagOrId');
-        // TODO check if uniqueObjectForUser is obsolete
         $rules = [
             'tag'         => 'min:1|max:1024|uniqueObjectForUser:tags,tag,'.$tag->id,
             'description' => 'min:1|nullable|max:32768',
-            'date'        => 'date|nullable',
+            'date'        => 'date|nullable|after:1900-01-01|before:2099-12-31',
         ];
 
         return Location::requestRules($rules);

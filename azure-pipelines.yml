@@ -1,0 +1,250 @@
+trigger: none
+pr: none
+schedules:
+- cron: '0 6 * * MON'
+  displayName: Regular build
+  branches:
+    include:
+    - main
+parameters:
+- name: platforms
+  displayName: Build platforms
+  type: string
+  default: linux/amd64,linux/arm64
+- name: repository
+  displayName: Repository name
+  type: string
+  default: fireflyiii/core
+- name: buildVersion
+  displayName: Which version to build
+  type: string
+  default: develop
+
+jobs:
+- job: 'BuildFFIII'
+  timeoutInMinutes: 15
+  workspace:
+    clean: all
+  steps:
+  - checkout: self
+    persistCredentials: true
+    clean: true
+  - script: |
+      docker buildx prune --force
+      docker container stop $(docker container ls -a -f name=builder --format="{{.ID}}") || true
+      docker container rm $(docker container ls -a -f name=builder --format="{{.ID}}") || true
+    displayName: 'Prune and remove old builder.'
+  - script: |
+      docker run --rm --privileged multiarch/qemu-user-static --reset -p yes i
+      docker buildx create --name firefly_iii_builder
+      docker buildx inspect firefly_iii_builder --bootstrap
+      docker buildx use firefly_iii_builder
+    displayName: 'Set up builder'
+  - script: |
+      sudo timedatectl set-timezone Europe/Amsterdam
+      cd MainImage
+      git pull origin main
+      git checkout main 
+      echo "Update counters"
+      BUILDNR=$(<"counter.txt")
+      BUILDNR=$((BUILDNR + 1))
+      echo $BUILDNR > counter.txt
+      echo $(date '+%d-%m-%Y %T %Z') > date.txt
+      echo "Going to build #${BUILDNR}"
+      git pull
+      git config user.email "robot@firefly-iii.org"
+      git config user.name "Firefly III build robot"
+      git add counter.txt
+      git add date.txt
+      git commit -m "Auto-update build files for build #${BUILDNR}."
+      git push
+    displayName: 'Commit changes to Git.'
+  - script: |
+      set -euo pipefail
+      sudo timedatectl set-timezone Europe/Amsterdam
+      # docker login with token.
+      echo 'Docker login...'
+      echo "${DOCKERPASSWORD}" | docker login --username ${DOCKERUSERNAME} --password-stdin
+      echo 'Done!'
+
+      cd MainImage
+      gpg --import ./release.gpg
+      
+      # start of script
+      # label
+      VERSION=${{ parameters.buildVersion }}
+      LABEL=$VERSION
+      
+      # replace variables inside Dockerfile. Will not be committed.
+      ISODATE=$(date --iso-8601=seconds)
+      echo "Date is ${ISODATE}"
+
+      echo "Input 'LABEL' is $LABEL"
+      echo "Input 'VERSION' is $VERSION"
+
+      # if the version is an alpha version, push to "alpha":
+      if [[ $VERSION == *"alpha"* ]]; then
+        LABEL="alpha"
+        echo "Recognized version as alpha: '$VERSION'"
+      fi
+
+      # if the version is a beta version, push to "beta":
+      if [[ $VERSION == *"beta"* ]]; then
+        echo "Recognized version as beta: '$VERSION'"
+        LABEL="beta"
+      fi
+      # if the version is a beta version, push to "beta":
+      if [[ $VERSION == "branch"* ]]; then
+        echo "Recognized version as branch: '$VERSION'"
+        LABEL=$VERSION
+      fi
+
+      if [[ $VERSION != *"beta"* && $VERSION != *"alpha"* && $VERSION != *"dev"* && $VERSION != "branch"* ]]; then
+        echo "Recognized version as production: '$VERSION'"
+        LABEL="latest"
+      fi
+
+      echo "---"
+      echo "final label is '$LABEL'"
+      echo "final version is '$VERSION'"
+      DOWNLOAD_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION-$(date +'%Y%m%d')/FireflyIII-$VERSION.zip"
+      HEAD_FILE_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION-$(date +'%Y%m%d')/HEAD.txt"
+      TEST_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION-$(date +'%Y%m%d')/FireflyIII-$VERSION.zip"
+      releaseCount=0
+      downloadExists=true
+
+      # download version from server (just once)
+      if [[ $VERSION == *"dev"* ]] || [[ $VERSION == "branch"* ]]; then
+        echo "Will try to download develop or branch version in a loop."
+        # while does not exist  
+        while [ "$downloadExists" = true ]
+        do
+          # generate URL
+          if [ "$releaseCount" -eq "0" ]; then
+            TEST_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION-$(date +'%Y%m%d')/FireflyIII-$VERSION.zip"
+          else
+            TEST_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION-$(date +'%Y%m%d').$releaseCount/FireflyIII-$VERSION.zip"
+          fi
+          echo "Download url is now $TEST_URL"
+          # test if file exists.
+          if curl -s -I $TEST_URL | grep 404; then
+             downloadExists=false
+             echo "No such file, its safe to download using: $DOWNLOAD_URL"
+          else 
+             releaseCount=$((releaseCount+1))
+             downloadExists=true
+             DOWNLOAD_URL=$TEST_URL
+             echo "File exists, try the next release ($releaseCount)."
+          fi
+        done
+        echo "Will download development/branch version: $VERSION from $DOWNLOAD_URL"
+        HEAD_FILE_URL="${DOWNLOAD_URL/FireflyIII-$VERSION.zip/HEAD.txt}"
+        echo "Will download HEAD file from $HEAD_FILE_URL" 
+      fi
+      
+      if [[ $VERSION != *"dev"* && $VERSION != "branch"* ]]; then
+        echo "Will build prod, alpha or beta version '$VERSION' under tag '$LABEL'."
+        DOWNLOAD_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION/FireflyIII-$VERSION.zip"
+        HEAD_FILE_URL="https://github.com/firefly-iii/firefly-iii/releases/download/$VERSION/HEAD.txt"
+      fi
+      
+      echo "Downloading $DOWNLOAD_URL"
+      echo "Downloading $HEAD_FILE_URL"
+      echo "Downloading $DOWNLOAD_URL.asc"
+      
+      curl -s -o download.zip -A "Mozilla/5.0" -sSL $DOWNLOAD_URL
+      curl -s -o download.zip.asc -A "Mozilla/5.0" -sSL $DOWNLOAD_URL.asc
+      curl -s -o HEAD.txt -A "Mozilla/5.0" -sSL $HEAD_FILE_URL
+      GIT_HASH=$(<HEAD.txt)
+      rm HEAD.txt
+      echo "Git hash is $GIT_HASH"
+      
+      # validate signature:
+      gpg --verify download.zip.asc download.zip
+
+      # build $LABEL when it's a develop version
+      if [[ $VERSION == *"dev"* ]]; then
+        echo "Will build development under tag '$LABEL'."
+        docker buildx build --quiet --pull --no-cache --platform ${{ parameters.platforms }} \
+          --build-arg VERSION \
+          --build-arg BASE_TAG=develop \
+          --build-arg isodate=$ISODATE \
+          --build-arg gitrevision=$GIT_HASH \
+          --build-arg version=$VERSION \
+          -t ${{ parameters.repository }}:$LABEL --push .
+      fi
+
+      # build $LABEL when it's a branch version
+      if [[ $VERSION == "branch"* ]]; then
+        echo "Will build BRANCH under tag '$LABEL'."
+        docker buildx build --quiet --pull --no-cache --platform ${{ parameters.platforms }} \
+          --build-arg VERSION \
+          --build-arg isodate=$ISODATE \
+          --build-arg BASE_TAG=develop \
+          --build-arg gitrevision=$GIT_HASH \
+          --build-arg version=$VERSION \
+          -t ${{ parameters.repository }}:$LABEL --push .
+      fi
+
+      if [[ $VERSION == *"beta"* || $VERSION == *"alpha"* ]]; then
+        echo "Will build or alpha or beta version under tag '$LABEL' and '$VERSION'."
+        docker buildx build --quiet --pull --no-cache --platform ${{ parameters.platforms }} \
+          --build-arg VERSION \
+          --build-arg isodate=$ISODATE \
+          --build-arg BASE_TAG=develop \
+          --build-arg gitrevision=$GIT_HASH \
+          --build-arg version=$VERSION \
+          --tag ${{ parameters.repository }}:$LABEL \
+          --tag ${{ parameters.repository }}:$VERSION \
+          --push .
+      fi
+
+
+
+      # build label AND version-$VERSION if not "develop" and not alpha or beta.
+      if [[ $VERSION != *"beta"* && $VERSION != *"alpha"* && $VERSION != *"dev"* && $VERSION != "branch"* ]]; then
+        echo "Will build prod version '$VERSION' under tag '$LABEL'."
+        
+        currentversion=$VERSION
+        # if starts with "v", remove the "v":
+        if [[ $currentversion == v* ]]; then
+          currentversion=${currentversion#*v} 
+          echo "version is now $currentversion"
+        fi
+
+
+        # split the version into parts:
+        split=( ${currentversion//./ } )
+
+        echo "Will build production version as '$LABEL'"
+        echo "Will build production version as 'version-${split[0]}'"
+        echo "Will build production version as 'version-${split[0]}.${split[1]}'"
+        echo "Will build production version as 'version-$currentversion'"
+
+        # build major tag
+        docker buildx build --quiet --no-cache --platform ${{ parameters.platforms }} \
+          --build-arg VERSION \
+          --build-arg isodate=$ISODATE \
+          --build-arg gitrevision=$GIT_HASH \
+          --build-arg version=${{ parameters.buildVersion }} \
+          --tag ${{ parameters.repository }}:$LABEL \
+          --tag ${{ parameters.repository }}:version-${split[0]} \
+          --tag ${{ parameters.repository }}:version-${split[0]}.${split[1]} \
+          --tag ${{ parameters.repository }}:version-$currentversion \
+          --push .
+
+      fi
+
+      # remove downloaded Firefly III again
+      rm download.zip
+
+
+      # end of script
+
+    displayName: 'Build!'
+    env:
+      VERSION: ${{ parameters.buildVersion }}
+      DOCKERUSERNAME: $(DockerUsername)
+      DOCKERPASSWORD: $(DockerPassword)
+  - checkout: self
+    clean: true

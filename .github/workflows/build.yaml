@@ -1,0 +1,56 @@
+name: Run FireflyIII Unit Support Tests
+
+on:
+  push:
+    branches:
+      - newfeature  # Change this to match your branch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: xdebug
+          extensions: >-
+              bcmath
+              curl
+              fileinfo
+              iconv
+              intl
+              json
+              sqlite3
+              mbstring
+              openssl
+              pdo
+              session
+              simplexml
+              sodium
+              tokenizer
+              xml
+              xmlwriter
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist
+
+
+      - name: "Create database file"
+        run: |
+          touch storage/database/database.sqlite
+          wget -q https://github.com/firefly-iii/test-fixtures/raw/refs/heads/main/test-database.sqlite -O storage/database/database.sqlite
+          
+
+      - name: "Upgrades the database to the latest version"
+        run:
+          php artisan migrate --seed
+          php artisan firefly-iii:upgrade-database
+
+      - name: Run PHPUnit tests in tests/unit/Support
+        run: vendor/bin/phpunit tests/unit/Support
+
+
