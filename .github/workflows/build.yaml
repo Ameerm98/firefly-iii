@@ -68,6 +68,10 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+        # Define $TIMESTAMP Env Variable
+      - name: Set timestamp environment variable
+        run: echo "TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_ENV
+
         # Docker login
       - name: Log in to DockerHub
         uses: docker/login-action@v2
@@ -79,7 +83,6 @@ jobs:
         # Push Docker image to DockerHub
       - name: Build And Push Docker image with timestamp tag
         run: |
-          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
@@ -95,6 +98,5 @@ jobs:
         # Scan Docker image for vulnerabilities
       - name: Scan Docker image for vulnerabilities with Trivy
         run: |
-          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           trivy image --exit-code 1 --no-progress $IMAGE_TAG
