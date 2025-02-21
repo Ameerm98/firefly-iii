@@ -55,7 +55,16 @@ jobs:
         run:
           php artisan firefly-iii:upgrade-database
 
+
+      - name: "Integrity Database Report"
+        run: php artisan firefly-iii:report-integrity
+
       - name: Run PHPUnit tests in tests/unit/Support
         run: vendor/bin/phpunit tests/unit/Support/Calendar
 
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
