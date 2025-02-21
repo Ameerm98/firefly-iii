@@ -56,6 +56,6 @@ jobs:
           php artisan firefly-iii:upgrade-database
 
       - name: Run PHPUnit tests in tests/unit/Support
-        run: vendor/bin/phpunit tests/unit/Support/Calender
+        run: vendor/bin/phpunit tests/unit/Support/Calendar
 
 
