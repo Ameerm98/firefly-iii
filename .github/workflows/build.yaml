@@ -69,19 +69,13 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
         # Build Docker image with timestamp tag
+        # Push Docker image to DockerHub
       - name: Build Docker image with timestamp tag
         run: |
           TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           docker build -t $IMAGE_TAG .
-
-        # Push Docker image to DockerHub with the timestamp tag
-      - name: Push Docker image to DockerHub
-        run: |
-          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
-          IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           docker push $IMAGE_TAG
-
 
         # Install Trivy for Docker image vulnerability check
       - name: Install Trivy
