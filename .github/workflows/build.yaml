@@ -68,12 +68,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get update && sudo apt-get install -y wget
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.34.0/trivy_0.34.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.34.0_Linux-64bit.deb
-
         # Build Docker image with timestamp tag
       - name: Build Docker image with timestamp tag
         run: |
@@ -81,17 +75,25 @@ jobs:
           IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           docker build -t $IMAGE_TAG .
 
-        # Scan Docker image for vulnerabilities
-      - name: Scan Docker image for vulnerabilities with Trivy
-        run: |
-          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
-          IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
-          trivy image --exit-code 1 --no-progress $IMAGE_TAG
-
-
         # Push Docker image to DockerHub with the timestamp tag
       - name: Push Docker image to DockerHub
         run: |
           TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
           IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           docker push $IMAGE_TAG
+
+
+        # Install Trivy for Docker image vulnerability check
+      - name: Install Trivy
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.34.0/trivy_0.34.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.34.0_Linux-64bit.deb
+
+
+        # Scan Docker image for vulnerabilities
+      - name: Scan Docker image for vulnerabilities with Trivy
+        run: |
+          TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
+          IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
+          trivy image --exit-code 1 --no-progress $IMAGE_TAG
