@@ -93,6 +93,10 @@ jobs:
             --env-file .db.env \
             mariadb:lts
 
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
       - name: Run Firefly III container
         run: |
           docker run -d \
