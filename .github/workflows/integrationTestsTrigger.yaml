@@ -107,7 +107,7 @@ jobs:
             -v firefly_iii_upload:/var/www/html/storage/upload \
             --env-file .env \
             -p 80:8080 \
-            fireflyiii:latest
+            ameerm98/fireflyiii:2025-02-26_16-59-47
 
 
       - name: Run Snap2Transact container
