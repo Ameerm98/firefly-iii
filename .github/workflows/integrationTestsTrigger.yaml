@@ -112,7 +112,7 @@ jobs:
 
       - name: Run Snap2Transact container
         run: |
-          docker run --name snap2transact --network firefly_iii -p 9090:9090 snap2transact
+          docker run --name snap2transact --network firefly_iii -p 9090:9090 ameerm98/snap2transact:latest
 
       - name: Wait for Firefly III to start
         run: sleep 30  # Wait for the app to initialize
