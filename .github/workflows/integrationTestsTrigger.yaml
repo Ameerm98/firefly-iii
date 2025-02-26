@@ -77,7 +77,7 @@ jobs:
         run: docker pull ameerm98/fireflyiii:2025-02-26_16-59-47
 
       - name: Pull Snap2Transact image
-        run: docker pull snap2transact:latest  # Replace with your image tag if needed
+        run: docker pull ameerm98/snap2transact:latest  # Replace with your image tag if needed
 
       - name: Set up Docker network
         run: docker network create firefly_iii
