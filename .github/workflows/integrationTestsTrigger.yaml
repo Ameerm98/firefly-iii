@@ -74,7 +74,7 @@ jobs:
         run: docker pull mariadb:lts
 
       - name: Pull Firefly III image
-        run: docker pull ameerm98/fireflyiii:latest
+        run: docker pull ameerm98/fireflyiii:2025-02-26_16-59-47
 
       - name: Pull Snap2Transact image
         run: docker pull snap2transact:latest  # Replace with your image tag if needed
