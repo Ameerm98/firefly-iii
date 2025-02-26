@@ -69,6 +69,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- Pull latest images ---
+      - name: Pull MariaDB image
+        run: docker pull mariadb:lts
+
+      - name: Pull Firefly III image
+        run: docker pull ameerm98/fireflyiii:latest
+
+      - name: Pull Snap2Transact image
+        run: docker pull snap2transact:latest  # Replace with your image tag if needed
+
       - name: Set up Docker network
         run: docker network create firefly_iii
 

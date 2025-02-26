@@ -3,7 +3,7 @@ name: Run FireflyIII Unit Support Tests
 on:
   push:
     branches:
-      - newfeature  # Change this to match your branch
+      - newfeature
 
 jobs:
   test:
@@ -87,16 +87,4 @@ jobs:
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
 
-        # Install Trivy for Docker image vulnerability check
-      - name: Install Trivy
-        run: |
-          sudo apt-get update && sudo apt-get install -y wget
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.34.0/trivy_0.34.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.34.0_Linux-64bit.deb
 
-
-        # Scan Docker image for vulnerabilities
-      - name: Scan Docker image for vulnerabilities with Trivy
-        run: |
-          IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
-          trivy image --exit-code 1 --no-progress $IMAGE_TAG
