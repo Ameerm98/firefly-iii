@@ -106,6 +106,7 @@ jobs:
             --restart always \
             -v firefly_iii_upload:/var/www/html/storage/upload \
             --env-file .env \
+            -e APP_URL=https://7c5a-2a06-c701-497e-fb00-f902-1d42-f6fb-f91a.ngrok-free.app \
             -p 80:8080 \
             ameerm98/fireflyiii:2025-02-26_16-59-47
 
@@ -129,15 +130,15 @@ jobs:
           distribution: 'temurin'  # Use Temurin (Adoptium) JDK
           java-version: '23'  # Replace with your Java version
 
-      - name: Install Chrome and Dependencies
+      - name: Launch standalone grid - Chrome
         run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser chromium-chromedriver
+          docker run --name grid_container -d -p 4444:4444 --shm-size=2gb selenium/standalone-chrome:131.0-chromedriver-131.0-grid-4.27.0-20250101
 
       - name: Run Firefly UI&API Tests
         working-directory: ./firefly-ui-api-tests
         run: |
           export BROWSER=chrome
+          export GRID_URL=http://localhost:4444
 
           mvn clean
           mvn test -Dtest=**/selenium/LoginPageTest
