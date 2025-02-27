@@ -1,0 +1,25 @@
+name: Test JMeter Action
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  action_build:
+    if: github.event.pull_request.merged == true  # Only run if PR is merged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run JMeter Action on a test
+        uses: rbhadti94/apache-jmeter-action@v0.5.0
+        with:
+          testFilePath: test/FireflyAPILoadTest.jmx
+          outputReportsFolder: reports/
+          args: "--loglevel INFO"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-test-results
+          path: reports/
