@@ -1,0 +1,131 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  fireflyIIIProvidedIntegrationTests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: xdebug
+          extensions: >-
+            bcmath
+            curl
+            fileinfo
+            iconv
+            intl
+            json
+            sqlite3
+            mbstring
+            openssl
+            pdo
+            session
+            simplexml
+            sodium
+            tokenizer
+            xml
+            xmlwriter
+
+
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist
+
+
+      - name: "Create database file"
+        run: |
+          touch storage/database/database.sqlite
+          wget -q https://github.com/firefly-iii/test-fixtures/raw/refs/heads/main/test-database.sqlite -O storage/database/database.sqlite
+
+
+      - name: "Upgrades the database to the latest version"
+        run:
+          php artisan firefly-iii:upgrade-database
+
+
+      - name: "Integrity Database Report"
+        run: php artisan firefly-iii:report-integrity
+
+      - name: Run PHPUnit tests in tests/unit/Support
+        run: vendor/bin/phpunit tests/integration
+
+
+  Firefly-UI-API-Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout Firefly API-UI tests repository
+        uses: actions/checkout@v4
+        with:
+          repository: Ameerm98/FireflyIIITesting  # Replace with your UI tests repo
+          path: firefly-ui-api-tests
+
+      - name: Set up Java for UI tests
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'  # Use Temurin (Adoptium) JDK
+          java-version: '23'  # Replace with your Java version
+
+      - name: Launch standalone grid - Chrome
+        run: |
+          docker run --name grid_container -d -p 4444:4444 --shm-size=2gb selenium/standalone-chrome:131.0-chromedriver-131.0-grid-4.27.0-20250101
+
+      - name: Run Firefly UI&API Tests
+        working-directory: ./firefly-ui-api-tests
+        run: |
+          export BROWSER=chrome
+          export GRID_URL=http://localhost:4444
+
+          mvn clean
+          mvn test -Dtest=**/selenium/LoginPageTest
+          mvn test -Dtest=**/selenium/TransferCreateTest#validTransferCreate
+          mvn test -Dtest=**/selenium/TransferEditTest#editTransferAmount
+          mvn test -Dtest=**/API/TransfersGetAPITest
+
+  Snap2Transact-UI-API-Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout Snap2Transact repository
+        uses: actions/checkout@v4
+        with:
+          repository: Ameerm98/Snap2Transact  # Replace with your UI tests repo
+          path: snap2transact-ui-api-tests
+
+      - name: Set up Java for UI tests
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'  # Use Temurin (Adoptium) JDK
+          java-version: '23'  # Replace with your Java version
+
+      - name: Launch standalone grid - Chrome
+        run: |
+          docker run --name grid_container -d -p 4444:4444 --shm-size=2gb selenium/standalone-chrome:131.0-chromedriver-131.0-grid-4.27.0-20250101
+
+
+      - name: Run Snap2Transact Tests
+        working-directory: ./snap2transact-ui-api-tests
+        run: |
+          mvn clean
+      #   mvn test -Dtest=**/integration/UI/*
+      #    mvn test -Dtest=**/integration/API/*
+
+
+
