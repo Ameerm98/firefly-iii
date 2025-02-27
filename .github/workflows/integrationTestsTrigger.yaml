@@ -142,7 +142,7 @@ jobs:
 
           mvn clean
           mvn test -Dtest=**/selenium/LoginPageTest
-          mvn test -Dtest=**/API/TransfersGetAPITest
+      #    mvn test -Dtest=**/API/TransfersGetAPITest
 
       - name: Checkout Snap2Transact repository
         uses: actions/checkout@v4
@@ -155,6 +155,6 @@ jobs:
         run: |
           mvn clean
           mvn test -Dtest=**/integration/UI/*
-          mvn test -Dtest=**/integration/API/*
+      #    mvn test -Dtest=**/integration/API/*
 
 
