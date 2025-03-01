@@ -55,19 +55,13 @@ jobs:
       - name: Run PHPUnit tests and generate JUnit report
         run: vendor/bin/phpunit --log-junit test-results.xml tests/unit/Support/Calendar
 
-      # Upload test results as an artifact
+      # ✅ Upload test results as an artifact (Fixed)
       - name: Upload PHPUnit Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: phpunit-results
           path: test-results.xml
-
-      # Upload test results to GitHub Actions for test reporting
-      - name: Publish Test Results
-        uses: actions/upload-test-results@v2
-        with:
-          name: PHPUnit Results
-          path: test-results.xml
+          retention-days: 5  # Store artifacts for 5 days
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
