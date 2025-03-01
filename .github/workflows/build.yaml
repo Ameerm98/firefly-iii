@@ -63,16 +63,14 @@ jobs:
           path: test-results.xml
           retention-days: 5  # Store artifacts for 5 days
 
-      - name: Convert JUnit XML to HTML report
-        run: |
-          npm install -g junit-viewer
-          junit-viewer --results=test-results.xml --save=report.html
-      - name: Upload HTML report artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-html-report
-          path: report.html
 
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+            name: JEST Tests            # Name of the check run which will be created
+            path: test-results.xml    # Path to test results
+            reporter: jest-junit        # Format of test results
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
