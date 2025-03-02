@@ -124,6 +124,8 @@ jobs:
       - name: Run Snap2Transact Tests
         working-directory: ./snap2transact-ui-api-tests
         run: |
+          export BROWSER=chrome
+          export GRID_URL=http://localhost:4444
           mvn clean
           mvn test -Dtest=**/integration/UI/*
           mvn test -Dtest=**/integration/API/*
