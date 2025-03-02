@@ -97,6 +97,14 @@ jobs:
           mvn test -Dtest=**/selenium/TransferEditTest#editTransferAmount
           mvn test -Dtest=**/API/TransfersGetAPITest
 
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+          name: JEST Tests            # Name of the check run which will be created
+          path: reports/jest-*.xml    # Path to test results
+          reporter: jest-junit        # Format of test results
+
   Snap2Transact-UI-API-Tests:
     runs-on: ubuntu-latest
     steps:
@@ -123,9 +131,11 @@ jobs:
       - name: Run Snap2Transact Tests
         working-directory: ./snap2transact-ui-api-tests
         run: |
+          docker pull ameerm98/snap2transact:latest
+          docker run -d --name snap2transact
           mvn clean
-      #   mvn test -Dtest=**/integration/UI/*
-      #    mvn test -Dtest=**/integration/API/*
+          mvn test -Dtest=**/integration/UI/*
+          mvn test -Dtest=**/integration/API/*
 
 
 
