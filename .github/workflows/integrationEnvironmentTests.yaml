@@ -124,8 +124,6 @@ jobs:
       - name: Run Snap2Transact Tests
         working-directory: ./snap2transact-ui-api-tests
         run: |
-          docker pull ameerm98/snap2transact:latest
-          docker run -d --name snap2transact -p 9090:9090 ameerm98/snap2transact:latest
           mvn clean
           mvn test -Dtest=**/integration/UI/*
           mvn test -Dtest=**/integration/API/*
