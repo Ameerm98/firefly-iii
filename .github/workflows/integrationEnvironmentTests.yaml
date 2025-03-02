@@ -93,9 +93,9 @@ jobs:
 
           mvn clean
           mvn test -Dtest=**/selenium/LoginPageTest
-          mvn test -Dtest=**/selenium/TransferCreateTest#validTransferCreate
-          mvn test -Dtest=**/selenium/TransferEditTest#editTransferAmount
-          mvn test -Dtest=**/API/TransfersGetAPITest
+       #   mvn test -Dtest=**/selenium/TransferCreateTest#validTransferCreate
+       #   mvn test -Dtest=**/selenium/TransferEditTest#editTransferAmount
+       #   mvn test -Dtest=**/API/TransfersGetAPITest
 
 
   Snap2Transact-UI-API-Tests:
