@@ -114,7 +114,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'  # Use Temurin (Adoptium) JDK
-          java-version: '23'  # Replace with your Java version
+          java-version: '17'  # Replace with your Java version
 
       - name: Launch standalone grid - Chrome
         run: |
