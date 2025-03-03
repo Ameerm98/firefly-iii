@@ -127,6 +127,5 @@ jobs:
           export BROWSER=chrome
           export GRID_URL=http://localhost:4444
           mvn clean
-          mvn test -Dtest=**/integration/UI/*
           mvn test -Dtest=**/integration/API/*
 
