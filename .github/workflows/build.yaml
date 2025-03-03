@@ -91,3 +91,5 @@ jobs:
           IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
+
+
