@@ -1,0 +1,93 @@
+name: Run FireflyIII Unit Support Tests
+
+on:
+  push:
+    branches:
+      - newfeature
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: xdebug
+          extensions: >-
+            bcmath
+            curl
+            fileinfo
+            iconv
+            intl
+            json
+            sqlite3
+            mbstring
+            openssl
+            pdo
+            session
+            simplexml
+            sodium
+            tokenizer
+            xml
+            xmlwriter
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist
+
+      - name: "Create database file"
+        run: |
+          touch storage/database/database.sqlite
+          wget -q https://github.com/firefly-iii/test-fixtures/raw/refs/heads/main/test-database.sqlite -O storage/database/database.sqlite
+
+      - name: "Upgrades the database to the latest version"
+        run: php artisan firefly-iii:upgrade-database
+
+      - name: "Integrity Database Report"
+        run: php artisan firefly-iii:report-integrity
+
+      - name: Run PHPUnit tests and generate JUnit report
+        run: vendor/bin/phpunit --log-junit test-results.xml tests/unit/Support/Calendar
+
+      # ✅ Upload test results as an artifact (Fixed)
+      - name: Upload PHPUnit Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-results
+          path: test-results.xml
+          retention-days: 5  # Store artifacts for 5 days
+
+
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+            name: JEST Tests            # Name of the check run which will be created
+            path: test-results.xml    # Path to test results
+            reporter: java-junit        # Format of test results
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Set timestamp environment variable
+        run: echo "TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_ENV
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build And Push Docker image with timestamp tag
+        run: |
+          IMAGE_TAG="ameerm98/fireflyiii:$TIMESTAMP"
+          docker build -t $IMAGE_TAG .
+          docker push $IMAGE_TAG

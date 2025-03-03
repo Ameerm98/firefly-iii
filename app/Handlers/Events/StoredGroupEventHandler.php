@@ -38,10 +38,17 @@ use Illuminate\Support\Collection;
  */
 class StoredGroupEventHandler
 {
+    public function runAllHandlers(StoredTransactionGroup $event): void
+    {
+        $this->processRules($event);
+        $this->recalculateCredit($event);
+        $this->triggerWebhooks($event);
+    }
+
     /**
      * This method grabs all the users rules and processes them.
      */
-    public function processRules(StoredTransactionGroup $storedGroupEvent): void
+    private function processRules(StoredTransactionGroup $storedGroupEvent): void
     {
         if (false === $storedGroupEvent->applyRules) {
             app('log')->info(sprintf('Will not run rules on group #%d', $storedGroupEvent->transactionGroup->id));
@@ -76,7 +83,7 @@ class StoredGroupEventHandler
         $newRuleEngine->fire();
     }
 
-    public function recalculateCredit(StoredTransactionGroup $event): void
+    private function recalculateCredit(StoredTransactionGroup $event): void
     {
         $group  = $event->transactionGroup;
 
@@ -89,7 +96,7 @@ class StoredGroupEventHandler
     /**
      * This method processes all webhooks that respond to the "stored transaction group" trigger (100)
      */
-    public function triggerWebhooks(StoredTransactionGroup $storedGroupEvent): void
+    private function triggerWebhooks(StoredTransactionGroup $storedGroupEvent): void
     {
         app('log')->debug(__METHOD__);
         $group  = $storedGroupEvent->transactionGroup;

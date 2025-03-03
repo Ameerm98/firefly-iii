@@ -733,7 +733,7 @@ return [
     // END
     'general_search_error'                                    => 'An error occurred while searching. Please check the log files for more information.',
     'search_box'                                              => 'Search',
-    'search_box_intro'                                        => 'Welcome to the search function of Firefly III. Enter your search query in the box. Make sure you check out the help file because the search is pretty advanced.',
+    'search_box_intro'                                        => 'Welcome to the search function of Firefly III. Enter your search query in the box. <a href="https://docs.firefly-iii.org/how-to/firefly-iii/features/search/">Make sure you check out the help file</a> because the search is pretty advanced.',
     'search_error'                                            => 'Error while searching',
     'search_searching'                                        => 'Searching ...',
     'search_results'                                          => 'Search results',
@@ -1466,7 +1466,7 @@ return [
     // exchange rates
     'menu_exchange_rates_index'                               => 'Exchange rates',
     'header_exchange_rates'                                   => 'Exchange rates',
-    'exchange_rates_intro'                                    => 'Firefly III supports downloading and using exchange rates. Read more about this in <a href="https://docs.firefly-iii.org/LOL_NOT_FINISHED_YET_TODO">the documentation</a>.',
+    'exchange_rates_intro'                                    => 'Firefly III supports downloading and using exchange rates. Read more about this in <a href="https://docs.firefly-iii.org/explanation/financial-concepts/exchange-rates/">the documentation</a>.',
     'exchange_rates_from_to'                                  => 'Between {from} and {to} (and the other way around)',
     'header_exchange_rates_rates'                             => 'Exchange rates',
     'exchange_rates_intro_rates'                              => 'Firefly III uses the following exchange rates. The inverse is automatically calculated when it is not provided. If no exchange rate exists for the date of the transaction, Firefly III will go back in time to find one. If none are present, the rate "1" will be used.',
@@ -1474,6 +1474,8 @@ return [
     'help_rate_form'                                          => 'On this day, how many {to} will you get for one {from}?',
     'save_new_rate'                                           => 'Save new rate',
     'add_new_rate'                                            => 'Add a new exchange rate',
+    'not_enough_currencies'                                   => 'Not enough currencies',
+    'not_enough_currencies_enabled'                           => 'If you have just one currency enabled, there is no need to add exchange rates.',
 
     // Financial administrations
     'administration_index'                                    => 'Financial administration',
@@ -1860,6 +1862,7 @@ return [
     'remove_budgeted_amount'                                  => 'Remove budgeted amount in :currency',
 
     // bills:
+    'skip_help_text'                                          => 'Use the skip field to create bi-monthly (skip = 1) or other custom intervals.',
     'subscription'                                            => 'Subscription',
     'not_expected_period'                                     => 'Not expected this period',
     'subscriptions_in_group'                                  => 'Subscriptions in group "%{title}"',

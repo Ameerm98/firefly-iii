@@ -41,6 +41,8 @@ use Illuminate\Http\JsonResponse;
 class AccountController extends Controller
 {
     use AccountFilter;
+    // this array only exists to test if the constructor will use it properly.
+    protected array $accepts = ['application/json', 'application/vnd.api+json'];
 
     /** @var array<int, string> */
     private array                      $balanceTypes;
@@ -81,15 +83,18 @@ class AccountController extends Controller
         $return = [];
         $result = $this->repository->searchAccount((string) $query, $types, $this->parameters->get('limit'));
 
+        // set date to end-of-day for account balance.
+        $date->endOfDay();
+
         /** @var Account $account */
         foreach ($result as $account) {
             $nameWithBalance = $account->name;
-            $currency        = $this->repository->getAccountCurrency($account) ?? $this->defaultCurrency;
+            $currency        = $this->repository->getAccountCurrency($account) ?? $this->nativeCurrency;
             $useCurrency     = $currency;
             if (in_array($account->accountType->type, $this->balanceTypes, true)) {
                 $balance         = Steam::finalAccountBalance($account, $date);
-                $key             = $this->convertToNative && $currency->id !== $this->defaultCurrency->id ? 'native_balance' : 'balance';
-                $useCurrency     = $this->convertToNative && $currency->id !== $this->defaultCurrency->id ? $this->defaultCurrency : $currency;
+                $key             = $this->convertToNative && $currency->id !== $this->nativeCurrency->id ? 'native_balance' : 'balance';
+                $useCurrency     = $this->convertToNative && $currency->id !== $this->nativeCurrency->id ? $this->nativeCurrency : $currency;
                 $amount          = $balance[$key] ?? '0';
                 $nameWithBalance = sprintf(
                     '%s (%s)',
@@ -99,15 +104,20 @@ class AccountController extends Controller
             }
 
             $return[]        = [
-                'id'                      => (string) $account->id,
-                'name'                    => $account->name,
-                'name_with_balance'       => $nameWithBalance,
-                'type'                    => $account->accountType->type,
-                'currency_id'             => (string) $useCurrency->id,
-                'currency_name'           => $useCurrency->name,
-                'currency_code'           => $useCurrency->code,
-                'currency_symbol'         => $useCurrency->symbol,
-                'currency_decimal_places' => $useCurrency->decimal_places,
+                'id'                              => (string) $account->id,
+                'name'                            => $account->name,
+                'name_with_balance'               => $nameWithBalance,
+                'type'                            => $account->accountType->type,
+                'currency_id'                     => (string) $useCurrency->id,
+                'currency_name'                   => $useCurrency->name,
+                'currency_code'                   => $useCurrency->code,
+                'currency_symbol'                 => $useCurrency->symbol,
+                'currency_decimal_places'         => $useCurrency->decimal_places,
+                'account_currency_id'             => (string) $currency->id,
+                'account_currency_name'           => $currency->name,
+                'account_currency_code'           => $currency->code,
+                'account_currency_symbol'         => $currency->symbol,
+                'account_currency_decimal_places' => $currency->decimal_places,
             ];
         }
 
@@ -123,6 +133,6 @@ class AccountController extends Controller
             }
         );
 
-        return response()->json($return);
+        return response()->api($return);
     }
 }

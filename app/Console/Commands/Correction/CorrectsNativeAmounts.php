@@ -102,7 +102,14 @@ class CorrectsNativeAmounts extends Command
     {
         $set = $userGroup->accounts()->where(function (EloquentBuilder $q): void {
             $q->whereNotNull('virtual_balance');
-            $q->orWhere('virtual_balance', '!=', '');
+
+            // this needs a different piece of code for postgres.
+            if ('pgsql' === config('database.default')) {
+                $q->orWhere(DB::raw('CAST(virtual_balance AS TEXT)'), '!=', '');
+            }
+            if ('pgsql' !== config('database.default')) {
+                $q->orWhere('virtual_balance', '!=', '');
+            }
         })->get();
 
         /** @var Account $account */
@@ -218,7 +225,6 @@ class CorrectsNativeAmounts extends Command
         $set                              = DB::table('transactions')
             ->join('transaction_journals', 'transaction_journals.id', '=', 'transactions.transaction_journal_id')
             ->where('transaction_journals.user_group_id', $userGroup->id)
-
             ->where(function (DatabaseBuilder $q1) use ($currency): void {
                 $q1->where(function (DatabaseBuilder $q2) use ($currency): void {
                     $q2->whereNot('transactions.transaction_currency_id', $currency->id)->whereNull('transactions.foreign_currency_id');

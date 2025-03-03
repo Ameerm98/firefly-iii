@@ -109,8 +109,8 @@ class AccountController extends Controller
         $accountNames  = $this->extractNames($accounts);
 
         // grab all balances
-        $startBalances = app('steam')->finalAccountsBalance($accounts, $start);
-        $endBalances   = app('steam')->finalAccountsBalance($accounts, $end);
+        $startBalances = Steam::finalAccountsBalance($accounts, $start);
+        $endBalances   = Steam::finalAccountsBalance($accounts, $end);
 
         // loop the accounts, then check for balance and currency info.
         foreach ($accounts as $account) {
@@ -139,6 +139,7 @@ class AccountController extends Controller
                 }
                 // Log::debug(sprintf('Will process expense array "%s" with amount %s', $key, $endBalance));
                 $searchCode   = $this->convertToNative ? $this->defaultCurrency->code : $key;
+                $searchCode   = 'balance' === $searchCode || 'native_balance' === $searchCode ? $this->defaultCurrency->code : $searchCode;
                 // Log::debug(sprintf('Search code is %s', $searchCode));
                 // see if there is an accompanying start amount.
                 // grab the difference and find the currency.
@@ -334,7 +335,7 @@ class AccountController extends Controller
         $start          = clone session('start', today(config('app.timezone'))->startOfMonth());
         $end            = clone session('end', today(config('app.timezone'))->endOfMonth());
         $defaultSet     = $repository->getAccountsByType([AccountTypeEnum::DEFAULT->value, AccountTypeEnum::ASSET->value])->pluck('id')->toArray();
-        Log::debug('Default set is ', $defaultSet);
+        // Log::debug('Default set is ', $defaultSet);
         $frontpage      = app('preferences')->get('frontpageAccounts', $defaultSet);
         $frontpageArray = !is_array($frontpage->data) ? [] : $frontpage->data;
         Log::debug('Frontpage preference set is ', $frontpageArray);
@@ -343,6 +344,9 @@ class AccountController extends Controller
             Log::debug('frontpage set is empty!');
         }
         $accounts       = $repository->getAccountsById($frontpageArray);
+
+        // move to end of day for $end.
+        $end->endOfDay();
 
         return response()->json($this->accountBalanceChart($accounts, $start, $end));
     }
@@ -416,7 +420,9 @@ class AccountController extends Controller
      */
     public function period(Account $account, Carbon $start, Carbon $end): JsonResponse
     {
-        Log::debug(sprintf('Now in period("%s", "%s")', $start->format('Y-m-d'), $end->format('Y-m-d')));
+        $start->startOfDay();
+        $end->endOfDay();
+        Log::debug(sprintf('Now in period("%s", "%s")', $start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')));
         $chartData       = [];
         $cache           = new CacheProperties();
         $cache->addProperty('chart.account.period');
@@ -431,7 +437,7 @@ class AccountController extends Controller
         // collect and filter balances for the entire period.
         $step            = $this->calculateStep($start, $end);
         Log::debug(sprintf('Step is %s', $step));
-        $locale          = app('steam')->getLocale();
+        $locale          = Steam::getLocale();
         $return          = [];
 
         // fix for issue https://github.com/firefly-iii/firefly-iii/issues/8041
@@ -442,11 +448,8 @@ class AccountController extends Controller
         $format          = (string) trans('config.month_and_day_js', [], $locale);
         $accountCurrency = $this->accountRepository->getAccountCurrency($account);
 
-        Log::debug('One');
         $range           = Steam::finalAccountBalanceInRange($account, $start, $end, $this->convertToNative);
-        Log::debug('Two');
         $range           = Steam::filterAccountBalances($range, $account, $this->convertToNative, $accountCurrency);
-        Log::debug('Three');
 
         // temp, get end balance.
         Log::debug('temp get end balance');
@@ -462,24 +465,31 @@ class AccountController extends Controller
         Log::debug('Balances exist at:');
         foreach ($range as $key => $value) {
             $newRange[] = ['date' => $key, 'info' => $value];
-            Log::debug(sprintf(' - %s', $key));
+            Log::debug(sprintf('%d - %s (%s)', count($newRange) - 1, $key, json_encode($value)));
         }
-        $carbon          = Carbon::createFromFormat('Y-m-d', $newRange[0]['date']);
+        $carbon          = Carbon::createFromFormat('Y-m-d', $newRange[0]['date'])->endOfDay();
+        Log::debug(sprintf('Start of loop, $carbon is %s', $carbon->format('Y-m-d H:i:s')));
         while ($end->gte($current)) {
             $momentBalance = $previous;
-            $theDate       = $current->format('Y-m-d');
-            while ($carbon->lte($current) && array_key_exists($expectedIndex, $newRange)) {
-                $momentBalance = $newRange[$expectedIndex]['info'];
-                Log::debug(sprintf('Expected index is %d!, date is %s, current is %s', $expectedIndex, $carbon->format('Y-m-d'), $current->format('Y-m-d')));
-                $carbon        = Carbon::createFromFormat('Y-m-d', $newRange[$expectedIndex]['date']);
-                ++$expectedIndex;
-            }
+            // $theDate       = $current->format('Y-m-d');
+            Log::debug(sprintf('Now at %s, with momentBalance %s', $current->format('Y-m-d H:i:s'), json_encode($momentBalance)));
 
+            // loop over the array with balances, find one that is earlier or on the same day.
+            while ($carbon->lte($current) && array_key_exists($expectedIndex, $newRange)) {
+                Log::debug(sprintf('[a] Expected index is %d, $carbon is %s, current is %s', $expectedIndex, $carbon->format('Y-m-d H:i:s'), $current->format('Y-m-d H:i:s')));
+
+                // grab the balance from that particular $expectedIndex
+                $momentBalance = $newRange[$expectedIndex]['info'];
+                ++$expectedIndex;
+
+                // make new carbon based on the next found date. this should stop the loop.
+                if (array_key_exists($expectedIndex, $newRange)) {
+                    $carbon = Carbon::createFromFormat('Y-m-d', $newRange[$expectedIndex]['date'])->endOfDay();
+                }
+            }
+            Log::debug(sprintf('momentBalance is now %s', json_encode($momentBalance)));
             $return        = $this->updateChartKeys($return, $momentBalance);
             $previous      = $momentBalance;
-
-            Log::debug(sprintf('Now at %s', $theDate), $momentBalance);
-
 
             // process each balance thing.
             foreach ($momentBalance as $key => $amount) {
@@ -489,8 +499,6 @@ class AccountController extends Controller
             $current       = app('navigation')->addPeriod($current, $step, 0);
             // here too, to fix #8041, the data is corrected to the end of the period.
             $current       = app('navigation')->endOfX($current, $step, null);
-            Log::debug(sprintf('Next moment is %s', $current->format('Y-m-d')));
-
         }
         Log::debug('End of chart loop.');
         // second loop (yes) to create nice array with info! Yay!
@@ -567,8 +575,8 @@ class AccountController extends Controller
         $accountNames  = $this->extractNames($accounts);
 
         // grab all balances
-        $startBalances = app('steam')->finalAccountsBalance($accounts, $start);
-        $endBalances   = app('steam')->finalAccountsBalance($accounts, $end);
+        $startBalances = Steam::finalAccountsBalance($accounts, $start);
+        $endBalances   = Steam::finalAccountsBalance($accounts, $end);
 
 
         // loop the accounts, then check for balance and currency info.
@@ -598,6 +606,7 @@ class AccountController extends Controller
                 }
                 // Log::debug(sprintf('Will process expense array "%s" with amount %s', $key, $endBalance));
                 $searchCode   = $this->convertToNative ? $this->defaultCurrency->code : $key;
+                $searchCode   = 'balance' === $searchCode || 'native_balance' === $searchCode ? $this->defaultCurrency->code : $searchCode;
                 // Log::debug(sprintf('Search code is %s', $searchCode));
                 // see if there is an accompanying start amount.
                 // grab the difference and find the currency.

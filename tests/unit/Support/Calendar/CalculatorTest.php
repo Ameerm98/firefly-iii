@@ -109,5 +109,7 @@ final class CalculatorTest extends TestCase
         $calculator = new Calculator();
         $period     = $calculator->nextDateByInterval($provider->epoch(), $provider->periodicity, $provider->skip);
         self::assertSame($provider->expected()->toDateString(), $period->toDateString());
+
+
     }
 }

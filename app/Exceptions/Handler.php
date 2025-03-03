@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 namespace FireflyIII\Exceptions;
 
+use Brick\Math\Exception\NumberFormatException;
 use FireflyIII\Jobs\MailError;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -124,7 +125,7 @@ class Handler extends ExceptionHandler
         if ($e instanceof BadRequestHttpException) {
             app('log')->debug('Return JSON BadRequestHttpException.');
 
-            return response()->json(['message' => $e->getMessage(), 'exception' => 'BadRequestHttpException'], 400);
+            return response()->json(['message' => $e->getMessage(), 'exception' => 'HttpException'], 400);
         }
 
         if ($e instanceof BadHttpHeaderException) {
@@ -132,6 +133,14 @@ class Handler extends ExceptionHandler
             app('log')->debug('Return JSON BadHttpHeaderException.');
 
             return response()->json(['message' => $e->getMessage(), 'exception' => 'BadHttpHeaderException'], $e->statusCode);
+        }
+        if (($e instanceof ValidationException || $e instanceof NumberFormatException) && $expectsJson) {
+            $errorCode = 422;
+
+            return response()->json(
+                ['message' => sprintf('Validation exception: %s', $e->getMessage()), 'errors' => ['field' => 'Field is invalid']],
+                $errorCode
+            );
         }
 
         if ($expectsJson) {
@@ -156,7 +165,7 @@ class Handler extends ExceptionHandler
             app('log')->debug(sprintf('Return JSON %s.', get_class($e)));
 
             return response()->json(
-                ['message' => sprintf('Internal Firefly III Exception: %s', $e->getMessage()), 'exception' => get_class($e)],
+                ['message' => sprintf('Internal Firefly III Exception: %s', $e->getMessage()), 'exception' => 'UndisclosedException'],
                 $errorCode
             );
         }

@@ -1,0 +1,160 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  fireflyIIIProvidedIntegrationTests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP with Xdebug
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: xdebug
+          extensions: >-
+              bcmath
+              curl
+              fileinfo
+              iconv
+              intl
+              json
+              sqlite3
+              mbstring
+              openssl
+              pdo
+              session
+              simplexml
+              sodium
+              tokenizer
+              xml
+              xmlwriter
+
+
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist
+
+
+      - name: "Create database file"
+        run: |
+          touch storage/database/database.sqlite
+          wget -q https://github.com/firefly-iii/test-fixtures/raw/refs/heads/main/test-database.sqlite -O storage/database/database.sqlite
+
+
+      - name: "Upgrades the database to the latest version"
+        run:
+          php artisan firefly-iii:upgrade-database
+
+
+      - name: "Integrity Database Report"
+        run: php artisan firefly-iii:report-integrity
+
+      - name: Run PHPUnit tests in tests/unit/Support
+        run: vendor/bin/phpunit tests/integration
+
+
+  UI-API-Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # --- Pull latest images ---
+      - name: Pull MariaDB image
+        run: docker pull mariadb:lts
+
+      - name: Pull Firefly III image
+        run: docker pull ameerm98/fireflyiii:2025-02-26_16-59-47
+
+      - name: Pull Snap2Transact image
+        run: docker pull ameerm98/snap2transact:latest  # Replace with your image tag if needed
+
+      - name: Set up Docker network
+        run: docker network create firefly_iii
+
+      - name: Run MariaDB container
+        run: |
+          docker run -d \
+            --name firefly_iii_db \
+            --hostname db \
+            --network firefly_iii \
+            --restart always \
+            -v firefly_iii_db:/var/lib/mysql \
+            --env-file .db.env \
+            mariadb:lts
+
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
+      - name: Run Firefly III container
+        run: |
+          docker run -d \
+            --name firefly_iii_app \
+            --hostname app \
+            --network firefly_iii \
+            --restart always \
+            -v firefly_iii_upload:/var/www/html/storage/upload \
+            --env-file .env \
+            -e APP_URL=https://7c5a-2a06-c701-497e-fb00-f902-1d42-f6fb-f91a.ngrok-free.app \
+            -p 80:8080 \
+            ameerm98/fireflyiii:2025-02-26_16-59-47
+
+
+      - name: Run Snap2Transact container
+        run: |
+          docker run -d --name snap2transact --network firefly_iii -p 9090:9090 ameerm98/snap2transact:latest
+
+      - name: Wait for Firefly III to start
+        run: sleep 30  # Wait for the app to initialize
+
+      - name: Checkout Firefly API-UI tests repository
+        uses: actions/checkout@v4
+        with:
+          repository: Ameerm98/FireflyIIITesting  # Replace with your UI tests repo
+          path: firefly-ui-api-tests
+
+      - name: Set up Java for UI tests
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'  # Use Temurin (Adoptium) JDK
+          java-version: '23'  # Replace with your Java version
+
+      - name: Launch standalone grid - Chrome
+        run: |
+          docker run --name grid_container -d -p 4444:4444 --shm-size=2gb selenium/standalone-chrome:131.0-chromedriver-131.0-grid-4.27.0-20250101
+
+      - name: Run Firefly UI&API Tests
+        working-directory: ./firefly-ui-api-tests
+        run: |
+          export BROWSER=chrome
+          export GRID_URL=http://localhost:4444
+
+          mvn clean
+          mvn test -Dtest=**/selenium/LoginPageTest
+      #    mvn test -Dtest=**/API/TransfersGetAPITest
+
+      - name: Checkout Snap2Transact repository
+        uses: actions/checkout@v4
+        with:
+          repository: Ameerm98/Snap2Transact  # Replace with your UI tests repo
+          path: snap2transact-ui-api-tests
+
+      - name: Run Snap2Transact Tests
+        working-directory: ./snap2transact-ui-api-tests
+        run: |
+          mvn clean
+          mvn test -Dtest=**/integration/UI/*
+      #    mvn test -Dtest=**/integration/API/*
+
+
+

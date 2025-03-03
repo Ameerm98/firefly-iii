@@ -57,6 +57,10 @@ class CronRequest extends FormRequest
         if ($this->has('date')) {
             $data['date'] = $this->getCarbonDate('date');
         }
+        // catch NULL.
+        if (null === $data['date']) {
+            $data['date'] = today(config('app.timezone'));
+        }
 
         return $data;
     }
@@ -68,7 +72,7 @@ class CronRequest extends FormRequest
     {
         return [
             'force' => 'in:true,false',
-            'date'  => 'date',
+            'date'  => 'nullable|date|after:1900-01-01|before:2099-12-31',
         ];
     }
 }

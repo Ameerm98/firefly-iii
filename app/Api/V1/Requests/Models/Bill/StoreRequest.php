@@ -78,9 +78,9 @@ class StoreRequest extends FormRequest
             'amount_max'     => ['required', new IsValidPositiveAmount()],
             'currency_id'    => 'numeric|exists:transaction_currencies,id',
             'currency_code'  => 'min:3|max:51|exists:transaction_currencies,code',
-            'date'           => 'date|required',
-            'end_date'       => 'nullable|date|after:date',
-            'extension_date' => 'nullable|date|after:date',
+            'date'           => 'date|required|after:1900-01-01|before:2099-12-31',
+            'end_date'       => 'nullable|date|after:date|after:1900-01-01|before:2099-12-31',
+            'extension_date' => 'nullable|date|after:date|after:1900-01-01|before:2099-12-31',
             'repeat_freq'    => 'in:weekly,monthly,quarterly,half-year,yearly|required',
             'skip'           => 'min:0|max:31|numeric',
             'active'         => [new IsBoolean()],
@@ -95,16 +95,40 @@ class StoreRequest extends FormRequest
     {
         $validator->after(
             static function (Validator $validator): void {
-                $data = $validator->getData();
-                $min  = (string) ($data['amount_min'] ?? '0');
-                $max  = (string) ($data['amount_max'] ?? '0');
+                $data   = $validator->getData();
+                $min    = $data['amount_min'] ?? '0';
+                $max    = $data['amount_max'] ?? '0';
 
-                if (1 === bccomp($min, $max)) {
+                if (is_array($min) || is_array($max)) {
+                    $validator->errors()->add('amount_min', (string) trans('validation.generic_invalid'));
+                    $validator->errors()->add('amount_max', (string) trans('validation.generic_invalid'));
+                    $min = '0';
+                    $max = '0';
+                }
+                $result = false;
+
+                try {
+                    $result = bccomp($min, $max);
+                } catch (\ValueError $e) {
+                    Log::error($e->getMessage());
+                    $validator->errors()->add('amount_min', (string) trans('validation.generic_invalid'));
+                    $validator->errors()->add('amount_max', (string) trans('validation.generic_invalid'));
+                }
+
+                if (1 === $result) {
                     $validator->errors()->add('amount_min', (string) trans('validation.amount_min_over_max'));
                 }
             }
         );
-        if ($validator->fails()) {
+        $failed = false;
+
+        try {
+            $failed = $validator->fails();
+        } catch (\TypeError $e) {
+            Log::error($e->getMessage());
+            $failed = false;
+        }
+        if ($failed) {
             Log::channel('audit')->error(sprintf('Validation errors in %s', __CLASS__), $validator->errors()->toArray());
         }
     }
