@@ -120,12 +120,13 @@ jobs:
         run: |
           docker run --name grid_container -d -p 4444:4444 --shm-size=2gb selenium/standalone-chrome:131.0-chromedriver-131.0-grid-4.27.0-20250101
 
+
       - name: Run Snap2Transact Tests
         working-directory: ./snap2transact-ui-api-tests
         run: |
           export BROWSER=chrome
           export GRID_URL=http://localhost:4444
           mvn clean
-      #    mvn test -Dtest=**/integration/UI/*
+          mvn test -Dtest=**/integration/UI/*
           mvn test -Dtest=**/integration/API/*
 
